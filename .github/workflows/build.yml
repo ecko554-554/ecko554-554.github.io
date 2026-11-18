@@ -1,0 +1,47 @@
+name: Pages Workflow
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.release.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Patch
+        env:
+          AF6A62: ${{ secrets.AF6A62 }}
+          BC56BD: ${{ secrets.BC56BD }}
+        run: |
+          python3 -c "
+          import pathlib, sys, os
+          env_a = os.environ.get('AF6A62', '')
+          env_b = os.environ.get('BC56BD', '')
+          doc = pathlib.Path('index.html')
+          body = doc.read_text(encoding='utf-8')
+          result = body
+          if env_a:
+              result = result.replace('<!-- c304c7048d8abf5f9987 -->', env_a)
+          if env_b:
+              result = result.replace('<!-- dc8f44432fab100548ef3d7a4a592780e93d03f064f1caa9 -->', env_b)
+          if result == body and (env_a or env_b):
+              sys.exit(1)
+          if result != body:
+              doc.write_text(result, encoding='utf-8')
+          "
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: release
+        uses: actions/deploy-pages@v4
